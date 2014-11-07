@@ -89,6 +89,7 @@ namespace ttcn3 { namespace grammar
     auto lcurly_ws = !ws >> lcurly >> !ws;
     auto rcurly_ws = !ws >> rcurly >> !ws;
     auto semi_ws = !ws >> semi >> !ws;
+    auto comma_ws = !ws >> comma >> !ws;
 
     auto NonZeroNum = one | two | three | four | five | six | seven | eight | nine;
     auto Num = zero | NonZeroNum;
@@ -109,7 +110,64 @@ namespace ttcn3 { namespace grammar
     auto FriendKeyword = f >> r >> i >> e >> n >> d;
     auto Visibility = PublicKeyword | PrivateKeyword | FriendKeyword;
 
-    auto TypeDef = noimp;
+    auto or_ws = !ws >> o >> r >> !ws;
+    auto and_ws = !ws >> a >> n >> d >> !ws;
+    auto xor_ws = !ws >> x >> o >> r >> !ws;
+    auto not_ws = !ws >> n >> o >> t >> !ws;
+    auto SingleExpression = !ws >> XorExpression *( or_ws >> XorExpression ) >> !ws;
+    auto XorExpression = AndExpression >> *( xor_ws >> AndExpression );
+    auto AndExpression = NotExpression >> *( and_ws >> NotExpression );
+    auto NotExpression = !not_ws >> EqualExpression;
+    auto EqualExpression = RelExpression >> *( EqualOp >> RelExpression );
+    auto RelExpression = ShiftExpression >> !(RelOp >> ShiftExpression) | CompoundExpression;
+    auto ShiftExpression = BitOrExpression { ShiftOp BitOrExpression }
+    auto BitOrExpression = BitXorExpression { "or4b" BitXorExpression }
+    auto BitXorExpression = BitAndExpression { "xor4b" BitAndExpression }
+    auto BitAndExpression = BitNotExpression { "and4b" BitNotExpression }
+    auto BitNotExpression = [ "not4b" ] AddExpression
+    auto AddExpression = MulExpression { AddOp MulExpression }
+    auto MulExpression = UnaryExpression { MultiplyOp UnaryExpression } | CompoundExpression
+    auto UnaryExpression = [ UnaryOp ] Primary
+    auto Primary = OpCall | Value | "(" SingleExpression ")"
+    auto OpCall = ConfigurationOps | GetLocalVerdict | TimerOps | TestcaseInstance | ( FunctionInstance [ ExtendedFieldReference ] ) | ( TemplateOps [ ExtendedFieldReference ] ) | ActivateOp
+    auto AddOp = !ws >> ("+" | "-" | StringOp) >> !ws;
+    auto MultiplyOp = !ws >> ("*" | "/" | "mod" | "rem") >> !ws;
+    auto UnaryOp = "+" | "-"
+    auto RelOp = "<" | ">" | ">=" | "<="
+    auto EqualOp = "==" | "!="
+    auto StringOp = "&"
+    auto ShiftOp = "<<" | ">>" | "<@" | "@>"
+
+    auto TypeDefKeyword = t >> y >> p >> e;
+    auto SubTypeDef = noimp;
+
+    // This is simplified from the formal grammar- Type is really composed 
+    // of either a PredefinedType (built-in charstring, integer, etc) or a 
+    // ReferencedType, but this parses both just fine.  The processes of 
+    // differentiating is up to the caller.
+    auto Type = Identifier;
+    auto NestedType = noimp;
+    auto ArrayDef = lbrace_ws >> SingleExpression >> !(dotdot_ws >> SingleExpression) >> rbrace_ws;
+    
+    auto AddressKeyword = a >> d >> d >> r >> e >> s >> s;
+    auto RecordKeyword = r >> e >> c >> o >> r >> d;
+    auto OptionalKeyword = o >> p >> t >> i >> o >> n >> a >> l;
+    auto NestedType = noimp;
+    auto StructFieldDef = (Type | NestedType) >> Identifier >> !ArrayDef >> !SubTypeSpec >> !OptionalKeyword;
+    auto StructDefBody = (Identifier | AddressKeyword) >> lcurly_ws >> !(StructFieldDef >> *(comma_ws >> StructFieldDef)) >> rcurly_ws;
+    auto RecordDef = RecordKeyword >> StructDefBody;
+
+    auto UnionDef = noimp;
+    auto SetDef = noimp;
+    auto RecordOfDef = noimp;
+    auto SetOfDef = noimp;
+    auto EnumDef = noimp;
+    auto PortDef = noimp;
+    auto ComponentDef = noimp;
+    auto StructuredTypeDef = RecordDef | UnionDef | SetDef | RecordOfDef | SetOfDef | EnumDef | PortDef | ComponentDef;
+    auto TypeDefBody = StructuredTypeDef | SubTypeDef;
+    auto TypeDef = TypeDefKeyword >> TypeDefBody;
+
     auto ConstDef = noimp;
     auto TemplateDef = noimp;
     auto ModuleParDef = noimp;
