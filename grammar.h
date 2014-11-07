@@ -1,11 +1,18 @@
 #pragma once
 
-#include "..\xml\parser\parse\parse.h"
+// The extensive use of templates causes this "decorated name length too 
+// long" warning all over the place.  Since we aren't exporting any of these 
+// template instanciations in a library, it is safe to ignore.
+#pragma warning( disable : 4503 )
 
-namespace ttcn { namespace grammar
+#include <parse\parse.h>
+
+namespace ttcn3 { namespace grammar
 {
     using namespace parse;
     using namespace parse::operators;
+
+    parse::never noimp;
 
     auto a = terminals::u<'a'>();
     auto b = terminals::u<'b'>();
@@ -73,18 +80,69 @@ namespace ttcn { namespace grammar
 
     terminals::u<';'> semi;
     terminals::u<','> comma;
+    terminals::u<'_'> Underscore;
+    terminals::u<'"'> dquote;
+    terminals::u<'{'> lcurly;
+    terminals::u<'}'> rcurly;
+
+    auto ws = +(terminals::space());
+    auto lcurly_ws = !ws >> lcurly >> !ws;
+    auto rcurly_ws = !ws >> rcurly >> !ws;
+    auto semi_ws = !ws >> semi >> !ws;
 
     auto NonZeroNum = one | two | three | four | five | six | seven | eight | nine;
     auto Num = zero | NonZeroNum;
     auto UpperAlpha = A | B | C | D | E | F | G | H | I | J | K | L | M | N | O | P | Q | R | S | T | U | V | W | X | Y | Z;
     auto LowerAlpha = a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s | t | u | v | w | x | y | z;
     auto Alpha = UpperAlpha | LowerAlpha;
-    auto Identifier = Alpha *(AlphaNum | Underscore);
+    auto AlphaNum = Alpha | Num;
+    auto Identifier = Alpha >> *(AlphaNum | Underscore);
+
+    auto FreeText = dquote >> *((dquote >> dquote) | ~dquote) >> dquote;
 
     auto LanguageKeyword = l | a | n | g | u | a | g | e;
-    auto LanguageSpec = LanguageKeyword >> FreeText *(comma >> FreeText);
+    auto LanguageSpec = LanguageKeyword >> FreeText >> *(comma >> FreeText);
     auto TTCN3ModuleKeyword = m >> o >> d >> u >> l >> e;
     auto ModuleId = Identifier >> !LanguageSpec;
-    auto TTCN3Module = TTCN3ModuleKeyword >> ModuleId >> lbracket >> !ModuleDefinitionsList >> !ModuleControlPart >> rbracket >> !WithStatement >> semi;
+    auto PublicKeyword = p >> u >> b >> l >> i >> c;
+    auto PrivateKeyword = p >> r >> i >> v >> a >> t >> e;
+    auto FriendKeyword = f >> r >> i >> e >> n >> d;
+    auto Visibility = PublicKeyword | PrivateKeyword | FriendKeyword;
+
+    auto TypeDef = noimp;
+    auto ConstDef = noimp;
+    auto TemplateDef = noimp;
+    auto ModuleParDef = noimp;
+    auto FunctionDef = noimp;
+    auto SignatureDef = noimp;
+    auto TestcaseDef = noimp;
+    auto AltstepDef = noimp;
+    auto ImportDef = noimp;
+    auto ExtFunctionDef = noimp;
+    auto ExtConstDef = noimp;
+    auto GroupDef = noimp;
+    auto FriendModuleDef = noimp;
+    auto WithStatement = noimp;
+
+    auto ModuleDefinition = ((
+        !Visibility >> (
+            TypeDef | 
+            ConstDef | 
+            TemplateDef | 
+            ModuleParDef | 
+            FunctionDef | 
+            SignatureDef | 
+            TestcaseDef | 
+            AltstepDef | 
+            ImportDef | 
+            ExtFunctionDef | 
+            ExtConstDef)) | 
+        (!PublicKeyword >> GroupDef) | 
+        (!PrivateKeyword >> FriendModuleDef)) >> !WithStatement;
+
+    auto ModuleControlPart = noimp;
+
+    auto ModuleDefinitionsList = +(ModuleDefinition >> !semi);
+    auto TTCN3Module = TTCN3ModuleKeyword >> ws >> ModuleId >> lcurly_ws >> !ModuleDefinitionsList >> !ModuleControlPart >> rcurly_ws >> !WithStatement >> semi_ws;
 
 }}
