@@ -1,6 +1,6 @@
 #pragma once
 
-#include <parse\parse.h>
+#include "..\xml\parser\parse\parse.h"
 
 namespace ttcn { namespace grammar
 {
@@ -29,7 +29,7 @@ namespace ttcn { namespace grammar
     auto t = terminals::u<'t'>();
     auto u = terminals::u<'u'>();
     auto v = terminals::u<'v'>();
-    auto q = terminals::u<'w'>();
+    auto w = terminals::u<'w'>();
     auto x = terminals::u<'x'>();
     auto y = terminals::u<'y'>();
     auto z = terminals::u<'z'>();
