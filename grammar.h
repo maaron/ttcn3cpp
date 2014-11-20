@@ -6,6 +6,7 @@
 #pragma warning( disable : 4503 )
 
 #include <parse\parse.h>
+#include <parse\delimited_list.h>
 
 namespace ttcn3 { namespace grammar
 {
@@ -84,6 +85,21 @@ namespace ttcn3 { namespace grammar
     terminals::u<'"'> dquote;
     terminals::u<'{'> lcurly;
     terminals::u<'}'> rcurly;
+    terminals::u<'('> lparen;
+    terminals::u<')'> rparen;
+    terminals::u<'+'> plus;
+    terminals::u<'-'> minus;
+    terminals::u<'*'> star;
+    terminals::u<'/'> fslash;
+    terminals::u<'&'> amp;
+    terminals::u<'<'> lt;
+    terminals::u<'>'> gt;
+    terminals::u<'='> eq;
+    terminals::u<'!'> bang;
+    terminals::u<'@'> at;
+    terminals::u<']'> rbrace;
+    terminals::u<'['> lbrace;
+    terminals::u<'.'> dot;
 
     auto ws = +(terminals::space());
     auto lcurly_ws = !ws >> lcurly >> !ws;
@@ -114,31 +130,41 @@ namespace ttcn3 { namespace grammar
     auto and_ws = !ws >> a >> n >> d >> !ws;
     auto xor_ws = !ws >> x >> o >> r >> !ws;
     auto not_ws = !ws >> n >> o >> t >> !ws;
-    auto SingleExpression = !ws >> XorExpression *( or_ws >> XorExpression ) >> !ws;
-    auto XorExpression = AndExpression >> *( xor_ws >> AndExpression );
-    auto AndExpression = NotExpression >> *( and_ws >> NotExpression );
+    auto mod = !ws >> m >> o >> d >> !ws;
+    auto rem = !ws >> r >> e >> m >> !ws;
+    auto not4b = !ws >> n >> o >> t >> four >> b >> !ws;
+    auto and4b = !ws >> a >> n >> d >> four >> b >> !ws;
+    auto xor4b = !ws >> x >> o >> r >> four >> b >> !ws;
+    auto or4b = !ws >> o >> r >> four >> b >> !ws;
+    auto rbrace_ws = !ws >> rbrace >> !ws;
+    auto lbrace_ws = !ws >> lbrace >> !ws;
+    auto dotdot_ws = !ws >> dot >> dot >> !ws;
+    //auto OpCall = ConfigurationOps | GetLocalVerdict | TimerOps | TestcaseInstance | (FunctionInstance >> !ExtendedFieldReference) | (TemplateOps !ExtendedFieldReference) | ActivateOp;
+    auto Primary = noimp; //OpCall | Value | (lparen >> SingleExpression >> rparen);
+    auto CompoundExpression = noimp;
+    auto StringOp = amp;
+    auto AddOp = !ws >> (plus | minus | StringOp) >> !ws;
+    auto MultiplyOp = !ws >> (star | fslash | mod | rem) >> !ws;
+    auto UnaryOp = plus | minus;
+    auto RelOp = (lt >> eq) | (gt >> eq) | lt | gt;
+    auto EqualOp = (eq >> eq) | (bang >> eq);
+    auto ShiftOp = (lt >> lt) | (gt >> gt) | (lt >> at) | (at >> gt);
+    auto UnaryExpression = !UnaryOp >> Primary;
+    auto MulExpression = (UnaryExpression % MultiplyOp) | CompoundExpression;
+    auto AddExpression = MulExpression % AddOp;
+    auto BitNotExpression = !not4b >> AddExpression;
+    auto BitAndExpression = BitNotExpression % and4b;
+    auto BitXorExpression = BitAndExpression % xor4b;
+    auto BitOrExpression = BitXorExpression % or4b;
+    auto ShiftExpression = BitOrExpression % ShiftOp;
+    auto RelExpression = (ShiftExpression >> !(RelOp >> ShiftExpression)) | CompoundExpression;
+    auto EqualExpression = RelExpression % EqualOp;
     auto NotExpression = !not_ws >> EqualExpression;
-    auto EqualExpression = RelExpression >> *( EqualOp >> RelExpression );
-    auto RelExpression = ShiftExpression >> !(RelOp >> ShiftExpression) | CompoundExpression;
-    auto ShiftExpression = BitOrExpression { ShiftOp BitOrExpression }
-    auto BitOrExpression = BitXorExpression { "or4b" BitXorExpression }
-    auto BitXorExpression = BitAndExpression { "xor4b" BitAndExpression }
-    auto BitAndExpression = BitNotExpression { "and4b" BitNotExpression }
-    auto BitNotExpression = [ "not4b" ] AddExpression
-    auto AddExpression = MulExpression { AddOp MulExpression }
-    auto MulExpression = UnaryExpression { MultiplyOp UnaryExpression } | CompoundExpression
-    auto UnaryExpression = [ UnaryOp ] Primary
-    auto Primary = OpCall | Value | "(" SingleExpression ")"
-    auto OpCall = ConfigurationOps | GetLocalVerdict | TimerOps | TestcaseInstance | ( FunctionInstance [ ExtendedFieldReference ] ) | ( TemplateOps [ ExtendedFieldReference ] ) | ActivateOp
-    auto AddOp = !ws >> ("+" | "-" | StringOp) >> !ws;
-    auto MultiplyOp = !ws >> ("*" | "/" | "mod" | "rem") >> !ws;
-    auto UnaryOp = "+" | "-"
-    auto RelOp = "<" | ">" | ">=" | "<="
-    auto EqualOp = "==" | "!="
-    auto StringOp = "&"
-    auto ShiftOp = "<<" | ">>" | "<@" | "@>"
+    auto AndExpression = NotExpression % and_ws;
+    auto XorExpression = AndExpression % xor_ws;
+    auto SingleExpression = !ws >> (XorExpression % or_ws) >> !ws;
 
-    auto TypeDefKeyword = t >> y >> p >> e;
+    auto TypeDefKeyword = !ws >> t >> y >> p >> e >> !ws;
     auto SubTypeDef = noimp;
 
     // This is simplified from the formal grammar- Type is really composed 
@@ -149,12 +175,12 @@ namespace ttcn3 { namespace grammar
     auto NestedType = noimp;
     auto ArrayDef = lbrace_ws >> SingleExpression >> !(dotdot_ws >> SingleExpression) >> rbrace_ws;
     
-    auto AddressKeyword = a >> d >> d >> r >> e >> s >> s;
-    auto RecordKeyword = r >> e >> c >> o >> r >> d;
-    auto OptionalKeyword = o >> p >> t >> i >> o >> n >> a >> l;
-    auto NestedType = noimp;
+    auto AddressKeyword = !ws >> a >> d >> d >> r >> e >> s >> s >> !ws;
+    auto RecordKeyword = !ws >> r >> e >> c >> o >> r >> d >> !ws;
+    auto OptionalKeyword = !ws >> o >> p >> t >> i >> o >> n >> a >> l >> !ws;
+    auto SubTypeSpec = noimp;
     auto StructFieldDef = (Type | NestedType) >> Identifier >> !ArrayDef >> !SubTypeSpec >> !OptionalKeyword;
-    auto StructDefBody = (Identifier | AddressKeyword) >> lcurly_ws >> !(StructFieldDef >> *(comma_ws >> StructFieldDef)) >> rcurly_ws;
+    auto StructDefBody = (Identifier | AddressKeyword) >> lcurly_ws >> !(StructFieldDef % comma_ws) >> rcurly_ws;
     auto RecordDef = RecordKeyword >> StructDefBody;
 
     auto UnionDef = noimp;
@@ -200,7 +226,7 @@ namespace ttcn3 { namespace grammar
 
     auto ModuleControlPart = noimp;
 
-    auto ModuleDefinitionsList = +(ModuleDefinition >> !semi);
-    auto TTCN3Module = TTCN3ModuleKeyword >> ws >> ModuleId >> lcurly_ws >> !ModuleDefinitionsList >> !ModuleControlPart >> rcurly_ws >> !WithStatement >> semi_ws;
+    auto ModuleDefinitionsList = +(ModuleDefinition[_0] >> !semi_ws);
+    auto TTCN3Module = TTCN3ModuleKeyword >> ws >> ModuleId[_0] >> lcurly_ws >> !ModuleDefinitionsList[_1] >> !ModuleControlPart >> rcurly_ws >> !WithStatement >> semi_ws;
 
 }}
